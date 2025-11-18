@@ -1,0 +1,118 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { writeFile, readFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import path from 'path';
+
+const VISITORS_FILE = path.join(process.cwd(), 'data', 'visitors.json');
+
+// Ensure data directory exists
+async function ensureDataDir() {
+  const dataDir = path.dirname(VISITORS_FILE);
+  if (!existsSync(dataDir)) {
+    await mkdir(dataDir, { recursive: true });
+  }
+}
+
+// Read visitor count from file
+async function getVisitorCount(): Promise<number> {
+  try {
+    await ensureDataDir();
+    if (existsSync(VISITORS_FILE)) {
+      const data = await readFile(VISITORS_FILE, 'utf-8');
+      const json = JSON.parse(data);
+      return json.count || 0;
+    }
+    return 0;
+  } catch (error) {
+    console.error('Error reading visitor count:', error);
+    return 0;
+  }
+}
+
+// Write visitor count to file
+async function setVisitorCount(count: number): Promise<void> {
+  try {
+    await ensureDataDir();
+    await writeFile(VISITORS_FILE, JSON.stringify({ count, lastUpdated: new Date().toISOString() }), 'utf-8');
+  } catch (error) {
+    console.error('Error writing visitor count:', error);
+  }
+}
+
+// Get client IP address
+function getClientIP(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for');
+  const realIP = request.headers.get('x-real-ip');
+  
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  if (realIP) {
+    return realIP;
+  }
+  return request.ip || 'unknown';
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const count = await getVisitorCount();
+    return NextResponse.json({ count }, { 
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    });
+  } catch (error) {
+    console.error('Error getting visitor count:', error);
+    return NextResponse.json({ count: 0 }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const clientIP = getClientIP(request);
+    const body = await request.json().catch(() => ({}));
+    const { isNewVisitor } = body;
+
+    // Only increment if it's a new visitor
+    if (isNewVisitor) {
+      const currentCount = await getVisitorCount();
+      const newCount = currentCount + 1;
+      await setVisitorCount(newCount);
+      
+      return NextResponse.json({ 
+        count: newCount,
+        message: 'Visitor count updated'
+      }, { 
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      });
+    }
+
+    // If not a new visitor, just return current count
+    const count = await getVisitorCount();
+    return NextResponse.json({ count }, { status: 200 });
+  } catch (error) {
+    console.error('Error updating visitor count:', error);
+    const count = await getVisitorCount();
+    return NextResponse.json({ count }, { status: 500 });
+  }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
+}
+
