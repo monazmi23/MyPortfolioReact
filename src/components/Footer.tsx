@@ -1,17 +1,79 @@
 "use client";
 
-import { Github, Linkedin, Mail } from "lucide-react";
+import { Github, Linkedin, Mail, Eye } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const [visitorCount, setVisitorCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const trackVisitor = async () => {
+      try {
+        // Check if this is a new visitor (not visited in this session)
+        const hasVisited = sessionStorage.getItem('hasVisited');
+        const isNewVisitor = !hasVisited;
+
+        if (isNewVisitor) {
+          // Mark as visited for this session
+          sessionStorage.setItem('hasVisited', 'true');
+          
+          // Increment visitor count
+          const response = await fetch('/api/visitors', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ isNewVisitor: true }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setVisitorCount(data.count);
+          }
+        } else {
+          // Just fetch the current count
+          const response = await fetch('/api/visitors');
+          if (response.ok) {
+            const data = await response.json();
+            setVisitorCount(data.count);
+          }
+        }
+      } catch (error) {
+        console.error('Error tracking visitor:', error);
+        // Try to get count even if tracking fails
+        try {
+          const response = await fetch('/api/visitors');
+          if (response.ok) {
+            const data = await response.json();
+            setVisitorCount(data.count);
+          }
+        } catch (e) {
+          console.error('Error fetching visitor count:', e);
+        }
+      }
+    };
+
+    trackVisitor();
+  }, []);
 
   return (
     <footer className="relative py-12 px-6 sm:px-12 bg-gray-50 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            © {currentYear} Mohd. Nazmi. Built with Next.js.
-          </p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              © {currentYear} Mohd. Nazmi. Built with Next.js.
+            </p>
+            {visitorCount !== null && (
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <Eye className="w-4 h-4" />
+                <span>
+                  {visitorCount.toLocaleString()} {visitorCount === 1 ? 'visitor' : 'visitors'}
+                </span>
+              </div>
+            )}
+          </div>
 
           <div className="flex items-center gap-6">
             {[
