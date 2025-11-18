@@ -39,21 +39,7 @@ async function setVisitorCount(count: number): Promise<void> {
   }
 }
 
-// Get client IP address
-function getClientIP(request: NextRequest): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const realIP = request.headers.get('x-real-ip');
-  
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
-  }
-  if (realIP) {
-    return realIP;
-  }
-  return request.ip || 'unknown';
-}
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const count = await getVisitorCount();
     return NextResponse.json({ count }, { 
@@ -72,7 +58,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const clientIP = getClientIP(request);
     const body = await request.json().catch(() => ({}));
     const { isNewVisitor } = body;
 
