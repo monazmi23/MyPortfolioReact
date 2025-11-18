@@ -10,6 +10,13 @@ export default function Footer() {
   useEffect(() => {
     const trackVisitor = async () => {
       try {
+        // First, always fetch the current count to display it
+        const getCountResponse = await fetch('/api/visitors');
+        if (getCountResponse.ok) {
+          const countData = await getCountResponse.json();
+          setVisitorCount(countData.count || 0);
+        }
+
         // Check if this is a new visitor (not visited in this session)
         const hasVisited = sessionStorage.getItem('hasVisited');
         const isNewVisitor = !hasVisited;
@@ -29,14 +36,7 @@ export default function Footer() {
           
           if (response.ok) {
             const data = await response.json();
-            setVisitorCount(data.count);
-          }
-        } else {
-          // Just fetch the current count
-          const response = await fetch('/api/visitors');
-          if (response.ok) {
-            const data = await response.json();
-            setVisitorCount(data.count);
+            setVisitorCount(data.count || 0);
           }
         }
       } catch (error) {
@@ -46,10 +46,15 @@ export default function Footer() {
           const response = await fetch('/api/visitors');
           if (response.ok) {
             const data = await response.json();
-            setVisitorCount(data.count);
+            setVisitorCount(data.count || 0);
+          } else {
+            // If API fails, set to 0 so it still displays
+            setVisitorCount(0);
           }
         } catch (e) {
           console.error('Error fetching visitor count:', e);
+          // Set to 0 so it still displays even on error
+          setVisitorCount(0);
         }
       }
     };
@@ -65,14 +70,14 @@ export default function Footer() {
             <p className="text-sm text-gray-600 dark:text-gray-400">
               © {currentYear} Mohd. Nazmi. Built with Next.js.
             </p>
-            {visitorCount !== null && (
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <Eye className="w-4 h-4" />
-                <span>
-                  {visitorCount.toLocaleString()} {visitorCount === 1 ? 'visitor' : 'visitors'}
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Eye className="w-4 h-4" />
+              <span>
+                {visitorCount !== null 
+                  ? `${visitorCount.toLocaleString()} ${visitorCount === 1 ? 'visitor' : 'visitors'}`
+                  : 'Loading...'}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-6">

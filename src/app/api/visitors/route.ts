@@ -30,12 +30,14 @@ async function getVisitorCount(): Promise<number> {
 }
 
 // Write visitor count to file
-async function setVisitorCount(count: number): Promise<void> {
+async function setVisitorCount(count: number): Promise<boolean> {
   try {
     await ensureDataDir();
     await writeFile(VISITORS_FILE, JSON.stringify({ count, lastUpdated: new Date().toISOString() }), 'utf-8');
+    return true;
   } catch (error) {
     console.error('Error writing visitor count:', error);
+    return false;
   }
 }
 
@@ -65,11 +67,12 @@ export async function POST(request: NextRequest) {
     if (isNewVisitor) {
       const currentCount = await getVisitorCount();
       const newCount = currentCount + 1;
-      await setVisitorCount(newCount);
+      const writeSuccess = await setVisitorCount(newCount);
       
+      // Return the new count even if write failed (for display purposes)
       return NextResponse.json({ 
         count: newCount,
-        message: 'Visitor count updated'
+        message: writeSuccess ? 'Visitor count updated' : 'Visitor count updated (write may have failed)'
       }, { 
         status: 200,
         headers: {
